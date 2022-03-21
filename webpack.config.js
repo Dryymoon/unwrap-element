@@ -1,7 +1,7 @@
 const path = require("path")
 
 module.exports = {
-  entry: "./unwrap-element.js",
+  entry: "./unwrap-element.mjs",
   output: {
     path: path.resolve(__dirname, "dist"),
     filename: "unwrap-element.min.js",

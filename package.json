@@ -3,18 +3,22 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/unwrap-element.min.js",
-  "module": "unwrap-element.js",
+  "module": "unwrap-element.mjs",
   "scripts": {
     "build": "webpack",
     "watch": "webpack --watch"
   },
   "author": "Pilipenko Igor @dryymoon",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@babel/core": "^7.17.8",
     "@babel/preset-env": "^7.16.11",
     "babel-loader": "^8.2.3",
     "webpack": "^5.70.0",
     "webpack-cli": "^4.9.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dryymoon/unwrap-element.git"
   }
 }

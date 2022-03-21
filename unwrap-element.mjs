@@ -41,7 +41,7 @@ p1osition: static !important;
         l1eft: auto !important;
  */
 
-function unwrap(selectorOrNode, { beforeDestroy, afterDestroy, dontAddStyles } = {}) {
+export function unwrap(selectorOrNode, { beforeDestroy, afterDestroy } = {}) {
   let targetNode;
   if (typeof selectorOrNode === 'string') {
     targetNode = document.querySelector(selectorOrNode);
@@ -54,7 +54,7 @@ function unwrap(selectorOrNode, { beforeDestroy, afterDestroy, dontAddStyles } =
     return;
   }
 
-  if (!dontAddStyles) addStyles();
+  addStyles();
 
   let oldNodes = [...document.querySelectorAll(`[${ELEMENT_RELATION_ATTR}]`)];
 
@@ -107,7 +107,7 @@ function unwrap(selectorOrNode, { beforeDestroy, afterDestroy, dontAddStyles } =
   return () => destroyUnwrap(targetNode, { beforeDestroy, afterDestroy });
 }
 
-function destroyUnwrap(targetNode, { beforeDestroy, afterDestroy } = {}) {
+export function destroyUnwrap(targetNode, { beforeDestroy, afterDestroy } = {}) {
   if (beforeDestroy) {
     const beforeDestroyResult = beforeDestroy();
     if (beforeDestroyResult === false) return;
@@ -187,8 +187,6 @@ function removeStyles() {
 }
 
 
-unwrap.addStyles = addStyles;
-unwrap.removeStyles = removeStyles;
-unwrap.destroyUnwrap = destroyUnwrap;
-
-module.exports = unwrap;
+export default unwrap;
+export const install = addStyles;
+export const unInstall = removeStyles;
