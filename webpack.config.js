@@ -1,24 +1,23 @@
 const path = require("path")
 
 module.exports = {
-  entry: "./unwrap-element.mjs",
+  entry: "./unwrap-element.js",
   output: {
     path: path.resolve(__dirname, "dist"),
-    filename: "unwrap-element.min.js",
-    library: {
-      name: "unwrapElement",
-      type: "umd"
-    },
+    filename: "unwrap-element.js",
+    library: "unwrapElement",
+    libraryTarget: 'umd',
+    globalObject: 'this',
   },
   module: {
     rules: [
       {
-        test: /\.(js)$/,
+        test: /\.m?(js)$/,
         exclude: /node_modules/,
         use: "babel-loader",
       },
     ],
   },
-  mode: "production",
+  mode: "development",
   devtool: 'source-map',
 }
