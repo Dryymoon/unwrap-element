@@ -2,7 +2,9 @@
   "name": "unwrap-element",
   "version": "1.0.5",
   "description": "",
+  "entry": "unwrap-element.js",
   "main": "dist/unwrap-element.js",
+  "browser": "dist/unwrap-element.min.js",
   "scripts": {
     "build": "webpack",
     "watch": "webpack --watch"
@@ -14,7 +16,8 @@
     "@babel/preset-env": "^7.16.11",
     "babel-loader": "^8.2.3",
     "webpack": "^5.70.0",
-    "webpack-cli": "^4.9.2"
+    "webpack-cli": "^4.9.2",
+    "webpack-merge": "^5.8.0"
   },
   "repository": {
     "type": "git",

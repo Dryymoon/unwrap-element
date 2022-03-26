@@ -1,14 +1,9 @@
-const path = require("path")
+const { merge } = require('webpack-merge');
+const path = require("path");
+const pkj = require('./package.json');
 
-module.exports = {
-  entry: "./unwrap-element.js",
-  output: {
-    path: path.resolve(__dirname, "dist"),
-    filename: "unwrap-element.js",
-    library: "unwrapElement",
-    libraryTarget: 'umd',
-    globalObject: 'this',
-  },
+const commonConfig = {
+  entry: path.resolve(__dirname, path.dirname(pkj.entry)),
   module: {
     rules: [
       {
@@ -21,3 +16,37 @@ module.exports = {
   mode: "development",
   devtool: 'source-map',
 }
+
+module.exports = [
+
+  // common legacy build
+  merge(commonConfig, {
+    output: {
+      path: path.resolve(__dirname, path.dirname(pkj.main)),
+      filename: path.basename(pkj.main),
+      library: { name: "vueBemMod", type: "umd" },
+      globalObject: 'this',
+    }
+  }),
+
+  // common legacy minified build
+  pkj.browser && merge(commonConfig, {
+    output: {
+      path: path.resolve(__dirname, path.dirname(pkj.browser)),
+      filename: path.basename(pkj.browser),
+      library: { name: "vueBemMod", type: "umd" },
+      globalObject: 'this',
+    },
+    mode: "production",
+  }),
+
+  // module build
+  pkj.module && merge(commonConfig, {
+    output: {
+      path: path.resolve(__dirname, path.dirname(pkj.module)),
+      filename: path.basename(pkj.module),
+      library: { type: "module" },
+    },
+    experiments: { outputModule: true }
+  }),
+].filter(it => it);
