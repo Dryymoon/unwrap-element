@@ -17,6 +17,10 @@ const STYLE = `
 [${ELEMENT_RELATION_ATTR}='parent']:before,
 [${ELEMENT_RELATION_ATTR}='parent']:after {
   display: none !important;
+}
+
+[${ELEMENT_RELATION_ATTR}='target'] {
+  display: block !important;
 }`;
 
 /*
@@ -62,12 +66,15 @@ export function unwrap(selectorOrNode, { beforeDestroy, afterDestroy } = {}) {
   targetNode.setAttribute(ELEMENT_PREV_SCROLL_X_ATTR, window.pageXOffset);
 
   holdRelation(targetNode, 'target');
+
+  window.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+
   oldNodes = oldNodes.filter(it => it !== targetNode);
 
   let iterableNode = targetNode;
   // eslint-disable-next-line no-cond-assign
   while (iterableNode) {
-    iterableNode?.parentNode.children.forEach((node) => {
+    [...iterableNode?.parentNode.children].forEach((node) => {
       if (node === document.head) return;
       if (node === iterableNode) return;
       processChildElement(node);
