@@ -3,7 +3,7 @@ const path = require("path");
 const pkj = require('./package.json');
 
 const commonConfig = {
-  entry: path.resolve(__dirname, path.dirname(pkj.entry)),
+  entry: path.resolve(__dirname, pkj.entry),
   module: {
     rules: [
       {
