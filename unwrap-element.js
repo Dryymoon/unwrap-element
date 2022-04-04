@@ -11,8 +11,27 @@ const STYLE = `
 [${ELEMENT_RELATION_ATTR}='neighbor']:after {
   display: none !important;
 }
-[${ELEMENT_RELATION_ATTR}='parent'] {
+[${ELEMENT_RELATION_ATTR}='parent122'] {
   all: unset !important;
+}
+[${ELEMENT_RELATION_ATTR}='parent']:not(html):not(body) {
+  all: unset !important;
+}
+html[${ELEMENT_RELATION_ATTR}='parent'],
+body[${ELEMENT_RELATION_ATTR}='parent'] {
+  display: block !important;
+  position: static !important;
+  overflow: visible !important;
+  height: auto !important;
+  min-height: auto !important;
+  max-height: unset !important;
+  width: auto !important;
+  min-width: auto !important;
+  max-width: unset !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 none !important;
+  transition: unset !important;
 }
 [${ELEMENT_RELATION_ATTR}='parent']:before,
 [${ELEMENT_RELATION_ATTR}='parent']:after {

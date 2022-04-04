@@ -2,6 +2,8 @@ const { merge } = require('webpack-merge');
 const path = require("path");
 const pkj = require('./package.json');
 
+console.log(path.resolve(__dirname, pkj.entry));
+
 const commonConfig = {
   entry: path.resolve(__dirname, pkj.entry),
   module: {
@@ -24,7 +26,7 @@ module.exports = [
     output: {
       path: path.resolve(__dirname, path.dirname(pkj.main)),
       filename: path.basename(pkj.main),
-      library: { name: "vueBemMod", type: "umd" },
+      library: { name: pkj.name, type: "umd" },
       globalObject: 'this',
     }
   }),
@@ -34,7 +36,7 @@ module.exports = [
     output: {
       path: path.resolve(__dirname, path.dirname(pkj.browser)),
       filename: path.basename(pkj.browser),
-      library: { name: "vueBemMod", type: "umd" },
+      library: { name: pkj.name, type: "umd" },
       globalObject: 'this',
     },
     mode: "production",
