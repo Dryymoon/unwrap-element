@@ -11,9 +11,6 @@ const STYLE = `
 [${ELEMENT_RELATION_ATTR}='neighbor']:after {
   display: none !important;
 }
-[${ELEMENT_RELATION_ATTR}='parent122'] {
-  all: unset !important;
-}
 [${ELEMENT_RELATION_ATTR}='parent']:not(html):not(body) {
   all: unset !important;
 }
