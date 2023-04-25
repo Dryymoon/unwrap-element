@@ -1,6 +1,6 @@
 {
   "name": "unwrap-element",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "",
   "entry": "unwrap-element.js",
   "main": "dist/unwrap-element.js",

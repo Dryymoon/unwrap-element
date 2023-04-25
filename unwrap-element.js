@@ -61,7 +61,7 @@ p1osition: static !important;
         l1eft: auto !important;
  */
 
-export function unwrap(selectorOrNode, { beforeDestroy, afterDestroy } = {}) {
+export function unwrap(selectorOrNode, { beforeDestroy, afterDestroy, bypassSelectorsOrNodes = [] } = {}) {
   let targetNode;
   if (typeof selectorOrNode === 'string') {
     targetNode = document.querySelector(selectorOrNode);
@@ -93,13 +93,18 @@ export function unwrap(selectorOrNode, { beforeDestroy, afterDestroy } = {}) {
     [...iterableNode?.parentNode.children].forEach((node) => {
       if (node === document.head) return;
       if (node === iterableNode) return;
+      if (matchNodeBySelectorsList(node, bypassSelectorsOrNodes)) return;
       processChildElement(node);
     });
 
-    if (!iterableNode[CHILDREN_OBSERVER]) {
+    if (!iterableNode[CHILDREN_OBSERVER]
+      && iterableNode !== targetNode
+      && !matchNodeBySelectorsList(iterableNode, bypassSelectorsOrNodes)
+    ) {
       const mutationCallback = (mutationsList) => {
         for (const mutation of mutationsList) {
           for (const addedNode of mutation.addedNodes) {
+            if (matchNodeBySelectorsList(addedNode, bypassSelectorsOrNodes)) continue;
             processChildElement(addedNode);
           }
           for (const removedNode of mutation.removedNodes) {
@@ -121,7 +126,9 @@ export function unwrap(selectorOrNode, { beforeDestroy, afterDestroy } = {}) {
 
     if (iterableNode === document) break;
 
-    holdRelation(iterableNode, 'parent');
+    if (!matchNodeBySelectorsList(iterableNode, bypassSelectorsOrNodes)) {
+      holdRelation(iterableNode, 'parent');
+    }
     oldNodes = oldNodes.filter(it => it !== iterableNode);
   }
 
@@ -209,6 +216,23 @@ function removeStyles() {
   document.getElementById(STYLE_ID)?.remove();
 }
 
+function matchNodeBySelectorsList(node, selectorsOrNodesList) {
+  for (let selectorOrNode of selectorsOrNodesList) {
+    if (typeof selectorOrNode === 'string' && selectorOrNode.startsWith('.')) {
+      if (node.classList.contains(selectorOrNode)) return true;
+    } else if (typeof selectorOrNode === 'string' && selectorOrNode.startsWith('#')) {
+      if (node.id === selectorOrNode) return true;
+    } else if (typeof selectorOrNode === 'string' && selectorOrNode.startsWith('[')) {
+      console.error('bypassSelectorOrNode match by attributes not supported for now');
+      // TODO Data attributes check
+      return;
+    } else if (typeof selectorOrNode === 'string') {
+      if (node.tagName === selectorOrNode.toUpperCase()) return true;
+    } else {
+      if (node === selectorOrNode) return true;
+    }
+  }
+}
 
 export default unwrap;
 export const install = addStyles;
