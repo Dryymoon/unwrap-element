@@ -75,6 +75,7 @@ export default function (
   options?: {
     beforeDestroy?: () => Promise<any | false>;
     afterDestroy?: () => Promise<any>;
+    beforeRestoreScroll?: () => Promise<any>;
     bypassSelectorsOrNodes: (string | HTMLElement)[];
   },
 ) {
@@ -171,7 +172,7 @@ supported 'querySelector' and 'DomNode'
                 ELEMENT_RELATION_ATTR,
               ) as string | undefined;
               if (relation === 'parent' || relation === 'target') {
-                destroyUnwrap(targetNode);
+                destroyUnwrap(targetNode).then();
               }
             }
           }
@@ -203,14 +204,15 @@ supported 'querySelector' and 'DomNode'
   return () => destroyUnwrap(targetNode, { beforeDestroy, afterDestroy });
 }
 
-export async function destroyUnwrap(
+async function destroyUnwrap(
   targetNode: HTMLElement | Element,
   options?: {
     beforeDestroy?: () => Promise<any | false>;
     afterDestroy?: () => Promise<any>;
+    beforeRestoreScroll?: () => Promise<any>;
   },
 ) {
-  const { beforeDestroy, afterDestroy } = options || {};
+  const { beforeDestroy, afterDestroy, beforeRestoreScroll } = options || {};
 
   if (beforeDestroy) {
     const beforeDestroyResult = await beforeDestroy();
@@ -235,7 +237,15 @@ export async function destroyUnwrap(
   targetNode.removeAttribute(ELEMENT_PREV_SCROLL_X_ATTR);
   targetNode.removeAttribute(ELEMENT_PREV_SCROLL_Y_ATTR);
 
-  window.scrollTo({ left: prevXNum, top: prevYNum, behavior: 'auto' });
+  let shouldRestoreScroll = true;
+  if (beforeRestoreScroll) {
+    const beforeRestoreScrollResult = await beforeRestoreScroll();
+    if (beforeRestoreScrollResult === false) shouldRestoreScroll = false;
+  }
+
+  if (shouldRestoreScroll) {
+    window.scrollTo({ left: prevXNum, top: prevYNum, behavior: 'auto' });
+  }
 
   removeStyles();
 

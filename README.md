@@ -35,15 +35,30 @@ Use it
 ```javascript
 import unwrapElement from "unwrap-element";
 
-const destroyUnwrap = unwrapElement('#targetElement');
-// TargetElement should place on all page
+const nodeOrSelector = '#targetElement';
+
+/**
+ * nodeOrSelector can be:
+ * 1) #id
+ * 2) .class
+ * 3) domNode
+ */
+
+const destroyUnwrap = unwrapElement(nodeOrSelector);
+
 // To revert all to previous state call destroyUnwrap();
 setTimeout(() => destroyUnwrap(), 5000);
 ```
 
 ## Api reference
 ```javascript
-const destroyUnwrap = unwrapElement(nodeOrSelector);
+const destroyUnwrap = unwrapElement(nodeOrSelector, {
+  bypassSelectorsOrNodes: ['.class', '#id', domNode], // Optional
+  beforeDestroy: async () => {}, // Optional, if returned false - prevent destroy
+  beforeRestoreScroll: async () => {}, // Optional, if returned false - prevent restore scroll
+  afterDestroy: async () => {}, // Optional
+  
+});
 ```
 
 ## License
