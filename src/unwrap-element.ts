@@ -73,7 +73,7 @@ type HtmlElementWithUnwrapData = (HTMLElement | Element) & {
 export default function (
   selectorOrNode: string | HTMLElement,
   options?: {
-    bypassSelectorsOrNodes: (string | HTMLElement)[];
+    bypassSelectorsOrNodes?: (string | HTMLElement)[];
     beforeDestroy?: () => Promise<void | false>;
     afterDestroy?: () => Promise<void>;
     beforeRestoreScroll?: () => Promise<void | false>;
@@ -148,9 +148,10 @@ supported 'querySelector' and 'DomNode'
       for (const node of Object.values(
         iterableNode.parentNode.children,
       ) as HtmlElementWithUnwrapData[]) {
-        if (node[CHILDREN_OBSERVER]) {
+        if (CHILDREN_OBSERVER in node) {
           node[CHILDREN_OBSERVER]?.disconnect();
           node[CHILDREN_OBSERVER] = undefined;
+          delete node[CHILDREN_OBSERVER];
         }
       }
 
@@ -159,7 +160,7 @@ supported 'querySelector' and 'DomNode'
         if (node === iterableNode) continue;
         if (matchNodeBySelectorsList(node, bypassSelectorsOrNodes)) continue;
         processNeighborElement(node);
-        oldNodes = oldNodes.filter((it) => it !== node);
+        oldNodes = oldNodes.filter(it => it !== node);
       }
     }
 
@@ -168,11 +169,9 @@ supported 'querySelector' and 'DomNode'
       !iterableNode[CHILDREN_OBSERVER] &&
       !matchNodeBySelectorsList(iterableNode, bypassSelectorsOrNodes)
     ) {
-      const mutationCallback: MutationCallback = (mutationsList) => {
+      const mutationCallback: MutationCallback = mutationsList => {
         for (const mutation of mutationsList) {
-          for (const addedNode of Object.values(
-            mutation.addedNodes,
-          ) as HTMLElement[]) {
+          for (const addedNode of Object.values(mutation.addedNodes)) {
             if (matchNodeBySelectorsList(addedNode, bypassSelectorsOrNodes))
               continue;
             processNeighborElement(addedNode);
@@ -204,7 +203,7 @@ supported 'querySelector' and 'DomNode'
       iterableNode[CHILDREN_OBSERVER] = observer;
     }
 
-    oldNodes = oldNodes.filter((it) => it !== iterableNode);
+    oldNodes = oldNodes.filter(it => it !== iterableNode);
 
     const parentElement = iterableNode.parentNode as
       | HTMLElement
@@ -287,25 +286,30 @@ async function destroyUnwrap(
 function destroyUnwrapNodeHandlers(node: HtmlElementWithUnwrapData) {
   node[HOLD_RELATION_OBSERVER]?.disconnect();
   node[HOLD_RELATION_OBSERVER] = undefined;
+  delete node[HOLD_RELATION_OBSERVER];
   node[CHILDREN_OBSERVER]?.disconnect();
   node[CHILDREN_OBSERVER] = undefined;
+  delete node[CHILDREN_OBSERVER];
   node.removeAttribute(ELEMENT_RELATION_ATTR);
 }
 
-function processNeighborElement(node: HTMLElement | Element) {
-  if (node.tagName === 'SCRIPT') return;
-  if (node.tagName === 'STYLE') return;
+function processNeighborElement(node: Node) {
+  if (node instanceof HTMLElement || node instanceof Element) {
+    if (node.tagName === 'SCRIPT') return;
+    if (node.tagName === 'STYLE') return;
 
-  holdRelation(node, 'neighbor');
+    holdRelation(node, 'neighbor');
+  }
 }
 
 function holdRelation(node: HtmlElementWithUnwrapData, relation: string) {
   node[HOLD_RELATION_OBSERVER]?.disconnect();
   node[HOLD_RELATION_OBSERVER] = undefined;
+  delete node[HOLD_RELATION_OBSERVER];
 
   node.setAttribute(ELEMENT_RELATION_ATTR, relation);
 
-  const mutationCallback: MutationCallback = (mutationsList) => {
+  const mutationCallback: MutationCallback = mutationsList => {
     for (const mutation of mutationsList) {
       const { target, attributeName } = mutation;
       if (
@@ -326,10 +330,9 @@ function holdRelation(node: HtmlElementWithUnwrapData, relation: string) {
 }
 
 function addStyles() {
-  let style: HTMLStyleElement | null = document.querySelector(
-    STYLE_ATTR,
-  ) as HTMLStyleElement | null;
-  if (!style) {
+  let style: HTMLStyleElement | null;
+  style = document.querySelector(STYLE_ATTR);
+  if (!(style instanceof HTMLStyleElement)) {
     style = document.createElement('style');
     style.setAttribute(STYLE_ATTR, '');
     style.innerHTML = STYLE;
