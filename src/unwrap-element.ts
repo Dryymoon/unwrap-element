@@ -1,7 +1,7 @@
 // https://stackoverflow.com/questions/59061266/can-i-import-dom-types-explicitly/59061859#59061859
 /// <reference lib="dom" />
 
-const STYLE_ID = 'unwrapper-style';
+const STYLE_ATTR = 'unwrapper-style';
 const ELEMENT_RELATION_ATTR = 'unwrapper-node-type';
 const ELEMENT_PREV_SCROLL_Y_ATTR = 'unwrapper-prev-scroll-y';
 const ELEMENT_PREV_SCROLL_X_ATTR = 'unwrapper-prev-scroll-x';
@@ -73,16 +73,17 @@ type HtmlElementWithUnwrapData = (HTMLElement | Element) & {
 export default function (
   selectorOrNode: string | HTMLElement,
   options?: {
-    beforeDestroy?: () => Promise<any | false>;
-    afterDestroy?: () => Promise<any>;
-    beforeRestoreScroll?: () => Promise<any>;
     bypassSelectorsOrNodes: (string | HTMLElement)[];
+    beforeDestroy?: () => Promise<void | false>;
+    afterDestroy?: () => Promise<void>;
+    beforeRestoreScroll?: () => Promise<void | false>;
   },
 ) {
   const {
+    bypassSelectorsOrNodes = [],
     beforeDestroy,
     afterDestroy,
-    bypassSelectorsOrNodes = [],
+    beforeRestoreScroll,
   } = options || {};
 
   let unsafeTargetNode: HTMLElement | Element | null | undefined;
@@ -125,14 +126,17 @@ supported 'querySelector' and 'DomNode'
     document.querySelectorAll(`[${ELEMENT_RELATION_ATTR}]`),
   );
 
-  targetNode.setAttribute(ELEMENT_PREV_SCROLL_Y_ATTR, String(window.scrollY));
-  targetNode.setAttribute(ELEMENT_PREV_SCROLL_X_ATTR, String(window.scrollX));
+  if (
+    !targetNode.getAttribute(ELEMENT_PREV_SCROLL_Y_ATTR) &&
+    !targetNode.getAttribute(ELEMENT_PREV_SCROLL_X_ATTR)
+  ) {
+    targetNode.setAttribute(ELEMENT_PREV_SCROLL_Y_ATTR, String(window.scrollY));
+    targetNode.setAttribute(ELEMENT_PREV_SCROLL_X_ATTR, String(window.scrollX));
+  }
 
   holdRelation(targetNode, 'target');
 
   window.scrollTo({ left: 0, top: 0, behavior: 'instant' });
-
-  oldNodes = oldNodes.filter((it) => it !== targetNode);
 
   let iterableNode: typeof targetNode & { [CHILDREN_OBSERVER]?: any };
 
@@ -140,18 +144,28 @@ supported 'querySelector' and 'DomNode'
 
   // eslint-disable-next-line no-cond-assign
   while (iterableNode) {
-    if (iterableNode?.parentNode) {
-      Object.values(iterableNode?.parentNode.children).forEach((node) => {
-        if (node === document.head) return;
-        if (node === iterableNode) return;
-        if (matchNodeBySelectorsList(node, bypassSelectorsOrNodes)) return;
-        processChildElement(node);
-      });
+    if (iterableNode.parentNode) {
+      for (const node of Object.values(
+        iterableNode.parentNode.children,
+      ) as HtmlElementWithUnwrapData[]) {
+        if (node[CHILDREN_OBSERVER]) {
+          node[CHILDREN_OBSERVER]?.disconnect();
+          node[CHILDREN_OBSERVER] = undefined;
+        }
+      }
+
+      for (const node of Object.values(iterableNode.parentNode.children)) {
+        if (node === document.head) continue;
+        if (node === iterableNode) continue;
+        if (matchNodeBySelectorsList(node, bypassSelectorsOrNodes)) continue;
+        processNeighborElement(node);
+        oldNodes = oldNodes.filter((it) => it !== node);
+      }
     }
 
     if (
+      iterableNode !== targetNode && // No need to observe children in targetNode
       !iterableNode[CHILDREN_OBSERVER] &&
-      iterableNode !== targetNode &&
       !matchNodeBySelectorsList(iterableNode, bypassSelectorsOrNodes)
     ) {
       const mutationCallback: MutationCallback = (mutationsList) => {
@@ -161,19 +175,24 @@ supported 'querySelector' and 'DomNode'
           ) as HTMLElement[]) {
             if (matchNodeBySelectorsList(addedNode, bypassSelectorsOrNodes))
               continue;
-            processChildElement(addedNode);
+            processNeighborElement(addedNode);
           }
-          for (const removedNode of Object.values(mutation.removedNodes)) {
-            if (
-              'getAttribute' in removedNode &&
-              typeof removedNode.getAttribute === 'function'
-            ) {
-              const relation = removedNode.getAttribute(
-                ELEMENT_RELATION_ATTR,
-              ) as string | undefined;
-              if (relation === 'parent' || relation === 'target') {
-                destroyUnwrap(targetNode).then();
-              }
+
+          for (const removedNode of Object.values(
+            mutation.removedNodes,
+          ) as HTMLElement[]) {
+            const relation = removedNode.getAttribute(ELEMENT_RELATION_ATTR) as
+              | string
+              | undefined;
+            if (relation === 'parent' || relation === 'target') {
+              destroyUnwrap(targetNode, {
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
+                beforeDestroy,
+                afterDestroy,
+                beforeRestoreScroll,
+                $force: true,
+              }).then();
             }
           }
         }
@@ -187,39 +206,54 @@ supported 'querySelector' and 'DomNode'
 
     oldNodes = oldNodes.filter((it) => it !== iterableNode);
 
-    if (!iterableNode.parentNode) break;
-    if (iterableNode.parentNode === document) break;
+    const parentElement = iterableNode.parentNode as
+      | HTMLElement
+      | Document
+      | undefined
+      | null;
 
-    if (
-      !matchNodeBySelectorsList(iterableNode.parentNode, bypassSelectorsOrNodes)
-    ) {
-      holdRelation(iterableNode.parentNode as HTMLElement, 'parent');
+    if (!parentElement) break;
+    if (parentElement === document) break;
+
+    const parentElement2 = parentElement as HTMLElement;
+
+    if (!matchNodeBySelectorsList(parentElement2, bypassSelectorsOrNodes)) {
+      holdRelation(parentElement2, 'parent');
     }
 
-    iterableNode = <Element>iterableNode.parentNode;
+    iterableNode = parentElement2;
   }
 
   for (const node of oldNodes) destroyUnwrapNodeHandlers(node);
 
-  return () => destroyUnwrap(targetNode, { beforeDestroy, afterDestroy });
+  return () =>
+    destroyUnwrap(targetNode, {
+      beforeDestroy,
+      afterDestroy,
+      beforeRestoreScroll,
+    });
 }
 
 async function destroyUnwrap(
   targetNode: HTMLElement | Element,
   options?: {
-    beforeDestroy?: () => Promise<any | false>;
-    afterDestroy?: () => Promise<any>;
-    beforeRestoreScroll?: () => Promise<any>;
+    beforeDestroy?: () => Promise<void | false>;
+    afterDestroy?: () => Promise<void>;
+    beforeRestoreScroll?: () => Promise<void | false>;
+    $force?: boolean;
   },
 ) {
-  const { beforeDestroy, afterDestroy, beforeRestoreScroll } = options || {};
+  const { beforeDestroy, afterDestroy, beforeRestoreScroll, $force } =
+    options || {};
 
   if (beforeDestroy) {
     const beforeDestroyResult = await beforeDestroy();
-    if (beforeDestroyResult === false) return;
+    if (!$force && beforeDestroyResult === false) return;
   }
 
-  if (!targetNode.getAttribute(ELEMENT_RELATION_ATTR)) return;
+  if (!$force && targetNode.getAttribute(ELEMENT_RELATION_ATTR) !== 'target') {
+    return;
+  }
 
   const nodes = Object.values(
     document.querySelectorAll(`[${ELEMENT_RELATION_ATTR}]`),
@@ -247,8 +281,6 @@ async function destroyUnwrap(
     window.scrollTo({ left: prevXNum, top: prevYNum, behavior: 'auto' });
   }
 
-  removeStyles();
-
   if (afterDestroy) await afterDestroy();
 }
 
@@ -260,7 +292,7 @@ function destroyUnwrapNodeHandlers(node: HtmlElementWithUnwrapData) {
   node.removeAttribute(ELEMENT_RELATION_ATTR);
 }
 
-function processChildElement(node: HTMLElement | Element) {
+function processNeighborElement(node: HTMLElement | Element) {
   if (node.tagName === 'SCRIPT') return;
   if (node.tagName === 'STYLE') return;
 
@@ -268,17 +300,8 @@ function processChildElement(node: HTMLElement | Element) {
 }
 
 function holdRelation(node: HtmlElementWithUnwrapData, relation: string) {
-  if (node.getAttribute(ELEMENT_RELATION_ATTR) === relation) return;
-
-  if (
-    HOLD_RELATION_OBSERVER in node &&
-    node[HOLD_RELATION_OBSERVER] &&
-    'disconnect' in node[HOLD_RELATION_OBSERVER] &&
-    typeof node[HOLD_RELATION_OBSERVER].disconnect === 'function'
-  ) {
-    node[HOLD_RELATION_OBSERVER].disconnect();
-    node[HOLD_RELATION_OBSERVER] = undefined;
-  }
+  node[HOLD_RELATION_OBSERVER]?.disconnect();
+  node[HOLD_RELATION_OBSERVER] = undefined;
 
   node.setAttribute(ELEMENT_RELATION_ATTR, relation);
 
@@ -303,18 +326,22 @@ function holdRelation(node: HtmlElementWithUnwrapData, relation: string) {
 }
 
 function addStyles() {
-  if (document.getElementById(STYLE_ID)) return;
-
-  const style = document.createElement('style');
-  style.type = 'text/css';
-  style.id = STYLE_ID;
-  style.innerHTML = STYLE;
+  let style: HTMLStyleElement | null = document.querySelector(
+    STYLE_ATTR,
+  ) as HTMLStyleElement | null;
+  if (!style) {
+    style = document.createElement('style');
+    style.setAttribute(STYLE_ATTR, '');
+    style.innerHTML = STYLE;
+  }
   document.head.appendChild(style);
 }
 
-function removeStyles() {
-  document.getElementById(STYLE_ID)?.remove();
-}
+/**
+ * We don`t use removeStyles because in some cases when Unwrap and then
+ * call Unwrap child element and next close Unwrap,
+ * child unwrap removed styles and parent won`t show
+ */
 
 function matchNodeBySelectorsList(
   node: HTMLElement | Element | Node,
