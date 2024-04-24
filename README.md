@@ -1,4 +1,4 @@
-# unwrap-element
+# unwrap-element (TypeScript)
 
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 [![License][license-src]][license-href]
