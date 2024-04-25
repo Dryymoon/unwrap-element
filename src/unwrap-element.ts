@@ -64,16 +64,16 @@ p1osition: static !important;
         l1eft: auto !important;
  */
 
-type HtmlElementWithUnwrapData = (HTMLElement | Element) & {
+type ElementWithUnwrapData = (HTMLElement | Element) & {
   [HOLD_RELATION_OBSERVER]?: MutationObserver;
   [CHILDREN_OBSERVER]?: MutationObserver;
   [ELEMENT_RELATION_ATTR]?: string;
 };
 
 export default function (
-  selectorOrNode: string | HTMLElement,
+  selectorOrNode: string | Element,
   options?: {
-    bypassSelectorsOrNodes?: (string | HTMLElement)[];
+    bypassSelectorsOrNodes?: (string | Element)[];
     beforeDestroy?: () => Promise<void | false>;
     afterDestroy?: () => Promise<void>;
     beforeRestoreScroll?: () => Promise<void | false>;
@@ -86,7 +86,7 @@ export default function (
     beforeRestoreScroll,
   } = options || {};
 
-  let unsafeTargetNode: HTMLElement | Element | null | undefined;
+  let unsafeTargetNode: Element | null | undefined;
   if (typeof selectorOrNode === 'string') {
     unsafeTargetNode = document.querySelector(selectorOrNode);
 
@@ -97,7 +97,7 @@ not found target element with selector:'${selectorOrNode}'
 `);
       return;
     }
-  } else if (isElement(selectorOrNode)) {
+  } else if (selectorOrNode instanceof Element) {
     unsafeTargetNode = selectorOrNode;
     if (!document.body.contains(<Node>unsafeTargetNode)) {
       console.warn(`
@@ -118,11 +118,11 @@ supported 'querySelector' and 'DomNode'
 
   if (!unsafeTargetNode) return; // Warnings consoled upper
 
-  const targetNode: HTMLElement | Element = unsafeTargetNode;
+  const targetNode: Element = unsafeTargetNode;
 
   addStyles();
 
-  let oldNodes: HTMLElement[] = Object.values(
+  let oldNodes: Element[] = Object.values(
     document.querySelectorAll(`[${ELEMENT_RELATION_ATTR}]`),
   );
 
@@ -147,7 +147,7 @@ supported 'querySelector' and 'DomNode'
     if (iterableNode.parentNode) {
       for (const node of Object.values(
         iterableNode.parentNode.children,
-      ) as HtmlElementWithUnwrapData[]) {
+      ) as ElementWithUnwrapData[]) {
         if (CHILDREN_OBSERVER in node) {
           node[CHILDREN_OBSERVER]?.disconnect();
           node[CHILDREN_OBSERVER] = undefined;
@@ -177,21 +177,21 @@ supported 'querySelector' and 'DomNode'
             processNeighborElement(addedNode);
           }
 
-          for (const removedNode of Object.values(
-            mutation.removedNodes,
-          ) as HTMLElement[]) {
-            const relation = removedNode.getAttribute(ELEMENT_RELATION_ATTR) as
-              | string
-              | undefined;
-            if (relation === 'parent' || relation === 'target') {
-              destroyUnwrap(targetNode, {
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                beforeDestroy,
-                afterDestroy,
-                beforeRestoreScroll,
-                $force: true,
-              }).then();
+          for (const removedNode of Object.values(mutation.removedNodes)) {
+            if (removedNode instanceof Element) {
+              const relation = removedNode.getAttribute(
+                ELEMENT_RELATION_ATTR,
+              ) as string | undefined;
+              if (relation === 'parent' || relation === 'target') {
+                destroyUnwrap(targetNode, {
+                  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                  // @ts-ignore
+                  beforeDestroy,
+                  afterDestroy,
+                  beforeRestoreScroll,
+                  $force: true,
+                }).then();
+              }
             }
           }
         }
@@ -206,7 +206,7 @@ supported 'querySelector' and 'DomNode'
     oldNodes = oldNodes.filter(it => it !== iterableNode);
 
     const parentElement = iterableNode.parentNode as
-      | HTMLElement
+      | Element
       | Document
       | undefined
       | null;
@@ -214,7 +214,7 @@ supported 'querySelector' and 'DomNode'
     if (!parentElement) break;
     if (parentElement === document) break;
 
-    const parentElement2 = parentElement as HTMLElement;
+    const parentElement2 = parentElement as Element;
 
     if (!matchNodeBySelectorsList(parentElement2, bypassSelectorsOrNodes)) {
       holdRelation(parentElement2, 'parent');
@@ -234,7 +234,7 @@ supported 'querySelector' and 'DomNode'
 }
 
 async function destroyUnwrap(
-  targetNode: HTMLElement | Element,
+  targetNode: Element,
   options?: {
     beforeDestroy?: () => Promise<void | false>;
     afterDestroy?: () => Promise<void>;
@@ -283,18 +283,20 @@ async function destroyUnwrap(
   if (afterDestroy) await afterDestroy();
 }
 
-function destroyUnwrapNodeHandlers(node: HtmlElementWithUnwrapData) {
+function destroyUnwrapNodeHandlers(node: ElementWithUnwrapData) {
   node[HOLD_RELATION_OBSERVER]?.disconnect();
   node[HOLD_RELATION_OBSERVER] = undefined;
   delete node[HOLD_RELATION_OBSERVER];
   node[CHILDREN_OBSERVER]?.disconnect();
   node[CHILDREN_OBSERVER] = undefined;
   delete node[CHILDREN_OBSERVER];
-  node.removeAttribute(ELEMENT_RELATION_ATTR);
+  if (node instanceof Element) {
+    node.removeAttribute(ELEMENT_RELATION_ATTR);
+  }
 }
 
 function processNeighborElement(node: Node) {
-  if (node instanceof HTMLElement || node instanceof Element) {
+  if (node instanceof Element) {
     if (node.tagName === 'SCRIPT') return;
     if (node.tagName === 'STYLE') return;
 
@@ -302,7 +304,7 @@ function processNeighborElement(node: Node) {
   }
 }
 
-function holdRelation(node: HtmlElementWithUnwrapData, relation: string) {
+function holdRelation(node: ElementWithUnwrapData, relation: string) {
   node[HOLD_RELATION_OBSERVER]?.disconnect();
   node[HOLD_RELATION_OBSERVER] = undefined;
   delete node[HOLD_RELATION_OBSERVER];
@@ -314,8 +316,7 @@ function holdRelation(node: HtmlElementWithUnwrapData, relation: string) {
       const { target, attributeName } = mutation;
       if (
         attributeName === ELEMENT_RELATION_ATTR &&
-        'getAttribute' in target &&
-        typeof target.getAttribute === 'function' &&
+        target instanceof Element &&
         target.getAttribute(attributeName) !== relation
       ) {
         node.setAttribute(ELEMENT_RELATION_ATTR, relation);
@@ -347,8 +348,8 @@ function addStyles() {
  */
 
 function matchNodeBySelectorsList(
-  node: HTMLElement | Element | Node,
-  selectorsOrNodesList: (string | HTMLElement | Element)[],
+  node: Element | Node,
+  selectorsOrNodesList: (string | Element)[],
 ) {
   for (const selectorOrNode of selectorsOrNodesList) {
     if (
@@ -378,8 +379,4 @@ function matchNodeBySelectorsList(
       if (node === selectorOrNode) return true;
     }
   }
-}
-
-function isElement(element: any) {
-  return element instanceof Element || element instanceof Document;
 }
