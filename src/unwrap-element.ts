@@ -233,7 +233,7 @@ supported 'querySelector' and 'DomNode'
     });
 }
 
-async function destroyUnwrap(
+export async function destroyUnwrap(
   targetNode: Element,
   options?: {
     beforeDestroy?: () => Promise<void | false>;

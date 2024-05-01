@@ -1,6 +1,6 @@
 {
   "name": "unwrap-element",
-  "version": "3.0.7",
+  "version": "3.0.8",
   "description": "",
   "main": "./dist/cjs/index.js",
   "module": "./dist/mjs/index.js",
