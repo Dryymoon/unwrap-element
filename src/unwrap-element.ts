@@ -76,13 +76,19 @@ export default function (
     bypassSelectorsOrNodes?: (string | Element)[];
     beforeDestroy?: () => Promise<void | false>;
     afterDestroy?: () => Promise<void>;
-    beforeRestoreScroll?: () => Promise<void | false>;
+    beforeInitialScroll?: (
+      options: ScrollToOptions,
+    ) => void | false | ScrollToOptions;
+    beforeRestoreScroll?: (
+      options: ScrollToOptions,
+    ) => Promise<void | false | ScrollToOptions>;
   },
 ) {
   const {
     bypassSelectorsOrNodes = [],
     beforeDestroy,
     afterDestroy,
+    beforeInitialScroll,
     beforeRestoreScroll,
   } = options || {};
 
@@ -126,17 +132,40 @@ supported 'querySelector' and 'DomNode'
     document.querySelectorAll(`[${ELEMENT_RELATION_ATTR}]`),
   );
 
+  const initialScrollParams: ScrollToOptions = {
+    top: window.scrollY,
+    left: window.scrollX,
+    behavior: 'instant',
+  };
+
   if (
     !targetNode.getAttribute(ELEMENT_PREV_SCROLL_Y_ATTR) &&
     !targetNode.getAttribute(ELEMENT_PREV_SCROLL_X_ATTR)
   ) {
-    targetNode.setAttribute(ELEMENT_PREV_SCROLL_Y_ATTR, String(window.scrollY));
-    targetNode.setAttribute(ELEMENT_PREV_SCROLL_X_ATTR, String(window.scrollX));
+    targetNode.setAttribute(
+      ELEMENT_PREV_SCROLL_Y_ATTR,
+      String(initialScrollParams.top),
+    );
+    targetNode.setAttribute(
+      ELEMENT_PREV_SCROLL_X_ATTR,
+      String(initialScrollParams.left),
+    );
   }
 
   holdRelation(targetNode, 'target');
 
-  window.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+  let shouldScroll = true;
+  let scrollParams: ScrollToOptions = { left: 0, top: 0, behavior: 'instant' };
+  if (beforeInitialScroll) {
+    const result: any | false | ScrollToOptions =
+      beforeInitialScroll(initialScrollParams); // { left?: number; top?: number; behavior?: string } =
+    if (result === false) shouldScroll = false;
+    if (typeof result === 'object')
+      scrollParams = { ...scrollParams, ...result };
+  }
+  if (shouldScroll) {
+    window.scrollTo(scrollParams);
+  }
 
   let iterableNode: typeof targetNode & { [CHILDREN_OBSERVER]?: any };
 
@@ -238,7 +267,9 @@ export async function destroyUnwrap(
   options?: {
     beforeDestroy?: () => Promise<void | false>;
     afterDestroy?: () => Promise<void>;
-    beforeRestoreScroll?: () => Promise<void | false>;
+    beforeRestoreScroll?: (
+      options: ScrollToOptions,
+    ) => Promise<void | false | ScrollToOptions>;
     $force?: boolean;
   },
 ) {
@@ -271,13 +302,24 @@ export async function destroyUnwrap(
   targetNode.removeAttribute(ELEMENT_PREV_SCROLL_Y_ATTR);
 
   let shouldRestoreScroll = true;
+  let scrollParams: ScrollToOptions = {
+    top: prevYNum,
+    left: prevXNum,
+    behavior: 'instant',
+  };
   if (beforeRestoreScroll) {
-    const beforeRestoreScrollResult = await beforeRestoreScroll();
-    if (beforeRestoreScrollResult === false) shouldRestoreScroll = false;
+    const result: any | false | ScrollToOptions = await beforeRestoreScroll({
+      top: prevYNum,
+      left: prevXNum,
+      behavior: 'instant',
+    });
+    if (result === false) shouldRestoreScroll = false;
+    if (typeof result === 'object')
+      scrollParams = { ...scrollParams, ...result };
   }
 
   if (shouldRestoreScroll) {
-    window.scrollTo({ left: prevXNum, top: prevYNum, behavior: 'instant' });
+    window.scrollTo(scrollParams);
   }
 
   if (afterDestroy) await afterDestroy();
