@@ -277,7 +277,7 @@ async function destroyUnwrap(
   }
 
   if (shouldRestoreScroll) {
-    window.scrollTo({ left: prevXNum, top: prevYNum, behavior: 'auto' });
+    window.scrollTo({ left: prevXNum, top: prevYNum, behavior: 'instant' });
   }
 
   if (afterDestroy) await afterDestroy();
